@@ -1,0 +1,88 @@
+#include <atomic>
+#include <vector>
+#include <thread>
+#include <iostream>
+#include <chrono>
+
+template<typename T>
+class SPSCQueue {
+public:
+    explicit SPSCQueue(size_t capacity)
+        : capacity_(capacity + 1), buffer_(capacity_) {}
+
+    bool push(const T& item) {
+        size_t tail = tail_.load(std::memory_order_relaxed);
+        size_t next = increment(tail);
+
+        if (next == head_.load(std::memory_order_acquire)) {
+            return false; // full
+        }
+
+        buffer_[tail] = item;
+
+        tail_.store(next, std::memory_order_release);
+        return true;
+    }
+
+    bool pop(T& item) {
+        size_t head = head_.load(std::memory_order_relaxed);
+
+        if (head == tail_.load(std::memory_order_acquire)) {
+            return false; // empty
+        }
+
+        item = buffer_[head];
+
+        head_.store(increment(head), std::memory_order_release);
+        return true;
+    }
+
+private:
+    size_t increment(size_t i) const {
+        return (i + 1) % capacity_;
+    }
+
+    const size_t capacity_;
+    std::vector<T> buffer_;
+
+    alignas(64) std::atomic<size_t> head_{0};
+    alignas(64) std::atomic<size_t> tail_{0};
+};
+
+int main() {
+    SPSCQueue<int> queue(10);
+
+    const int N = 20;
+
+    // Producer thread
+    std::thread producer([&]() {
+        for (int i = 1; i <= N; ++i) {
+            while (!queue.push(i)) {
+                // busy wait if full
+                std::this_thread::yield();
+            }
+            std::cout << "Produced: " << i << "\n";
+        }
+    });
+
+    // Consumer thread
+    std::thread consumer([&]() {
+        int value;
+        int count = 0;
+
+        while (count < N) {
+            if (queue.pop(value)) {
+                std::cout << "Consumed: " << value << "\n";
+                count++;
+            } else {
+                // busy wait if empty
+                std::this_thread::yield();
+            }
+        }
+    });
+
+    producer.join();
+    consumer.join();
+
+    return 0;
+}
