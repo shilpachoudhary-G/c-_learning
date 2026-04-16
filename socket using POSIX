@@ -1,0 +1,60 @@
+// server.cpp
+#include <iostream>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <unistd.h>
+#include <cstring>
+
+#define SOCKET_PATH "/tmp/ipc_socket"
+
+int main() {
+    int server_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+
+    sockaddr_un addr{};
+    addr.sun_family = AF_UNIX;
+    std::strcpy(addr.sun_path, SOCKET_PATH);
+
+    unlink(SOCKET_PATH); // remove old socket
+
+    bind(server_fd, (sockaddr*)&addr, sizeof(addr));
+    listen(server_fd, 5);
+
+    std::cout << "Server waiting...\n";
+
+    int client_fd = accept(server_fd, nullptr, nullptr);
+
+    char buffer[100];
+    read(client_fd, buffer, sizeof(buffer));
+
+    std::cout << "Received: " << buffer << "\n";
+
+    close(client_fd);
+    close(server_fd);
+
+    return 0;
+}
+
+// client.cpp
+#include <iostream>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <unistd.h>
+#include <cstring>
+
+#define SOCKET_PATH "/tmp/ipc_socket"
+
+int main() {
+    int sock_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+
+    sockaddr_un addr{};
+    addr.sun_family = AF_UNIX;
+    std::strcpy(addr.sun_path, SOCKET_PATH);
+
+    connect(sock_fd, (sockaddr*)&addr, sizeof(addr));
+
+    const char* msg = "Hello via UNIX socket!";
+    write(sock_fd, msg, strlen(msg) + 1);
+
+    close(sock_fd);
+    return 0;
+}
