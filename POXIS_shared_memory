@@ -1,0 +1,58 @@
+// writer_posix.cpp
+#include <iostream>
+#include <fcntl.h>      // shm_open
+#include <sys/mman.h>   // mmap
+#include <unistd.h>
+#include <cstring>
+
+int main() {
+    int fd = shm_open("/my_shm", O_CREAT | O_RDWR, 0666);
+    ftruncate(fd, 1024);
+
+    void* ptr = mmap(0, 1024, PROT_WRITE, MAP_SHARED, fd, 0);
+
+    std::strcpy((char*)ptr, "Hello from POSIX shared memory!");
+
+    std::cout << "Data written\n";
+
+    return 0;
+}
+
+// reader_posix.cpp
+#include <iostream>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <unistd.h>
+
+int main() {
+    int fd = shm_open("/my_shm", O_RDONLY, 0666);
+
+    void* ptr = mmap(0, 1024, PROT_READ, MAP_SHARED, fd, 0);
+
+    std::cout << "Data read: " << (char*)ptr << "\n";
+
+    munmap(ptr, 1024);
+    shm_unlink("/my_shm"); // cleanup
+
+    return 0;
+}
+
+// writer_posix.cpp
+#include <iostream>
+#include <fcntl.h>      // shm_open
+#include <sys/mman.h>   // mmap
+#include <unistd.h>
+#include <cstring>
+
+int main() {
+    int fd = shm_open("/my_shm", O_CREAT | O_RDWR, 0666);
+    ftruncate(fd, 1024);
+
+    void* ptr = mmap(0, 1024, PROT_WRITE, MAP_SHARED, fd, 0);
+
+    std::strcpy((char*)ptr, "Hello from POSIX shared memory!");
+
+    std::cout << "Data written\n";
+
+    return 0;
+}
