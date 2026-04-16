@@ -1,0 +1,62 @@
+// sender.cpp
+#include <iostream>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <mqueue.h>
+#include <cstring>
+
+int main() {
+    const char* queue_name = "/my_queue";
+
+    struct mq_attr attr;
+    attr.mq_flags = 0;
+    attr.mq_maxmsg = 10;
+    attr.mq_msgsize = 256;
+    attr.mq_curmsgs = 0;
+
+    mqd_t mq = mq_open(queue_name, O_CREAT | O_WRONLY, 0666, &attr);
+
+    if (mq == -1) {
+        perror("mq_open");
+        return 1;
+    }
+
+    const char* msg = "Hello from POSIX message queue!";
+    mq_send(mq, msg, strlen(msg) + 1, 1);
+
+    std::cout << "Message sent\n";
+
+    mq_close(mq);
+    return 0;
+}
+
+
+// receiver.cpp
+#include <iostream>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <mqueue.h>
+
+int main() {
+    const char* queue_name = "/my_queue";
+
+    mqd_t mq = mq_open(queue_name, O_RDONLY);
+
+    if (mq == -1) {
+        perror("mq_open");
+        return 1;
+    }
+
+    char buffer[256];
+    unsigned int priority;
+
+    mq_receive(mq, buffer, sizeof(buffer), &priority);
+
+    std::cout << "Received: " << buffer << "\n";
+    std::cout << "Priority: " << priority << "\n";
+
+    mq_close(mq);
+    mq_unlink(queue_name); // cleanup
+
+    return 0;
+}
