@@ -1,0 +1,100 @@
+#include <iostream>
+#include <thread>
+#include <mutex>
+#include <queue>
+#include <condition_variable>
+#include <chrono>
+
+using namespace std;
+
+queue<int> cars;
+mutex mtx;
+condition_variable cv;
+
+bool green_light = false;
+bool done = false;
+
+// Producer: sensor thread
+void sensor_thread() {
+    for (int i = 1; i <= 10; i++) {
+        this_thread::sleep_for(chrono::milliseconds(100));
+
+        {
+            lock_guard<mutex> lock(mtx);
+            cars.push(i);
+            cout << "[Sensor] Car " << i << " arrived\n";
+        }
+
+        cv.notify_one(); // notify traffic light
+    }
+
+    {
+        lock_guard<mutex> lock(mtx);
+        done = true;
+    }
+    cv.notify_one();
+}
+
+// Consumer: traffic light thread
+void traffic_light_thread() {
+    while (true) {
+        unique_lock<mutex> lock(mtx);
+
+        // wait until:
+        // 1. cars available
+        // 2. light is green OR done
+        cv.wait(lock, [] {
+            return (!cars.empty() && green_light) || done;
+        });
+
+        if (done && cars.empty())
+            break;
+
+        if (!cars.empty() && green_light) {
+            int car = cars.front();
+            cars.pop();
+
+            cout << "[Traffic] Car " << car << " is PASSING\n";
+
+            lock.unlock(); // release lock while processing
+            this_thread::sleep_for(chrono::milliseconds(150));
+        }
+    }
+}
+
+// Traffic light controller (toggles signal)
+void light_controller() {
+    for (int i = 0; i < 5; i++) {
+        // RED phase
+        {
+            lock_guard<mutex> lock(mtx);
+            green_light = false;
+            cout << "\n🔴 RED LIGHT\n";
+        }
+
+        this_thread::sleep_for(chrono::seconds(1));
+
+        // GREEN phase
+        {
+            lock_guard<mutex> lock(mtx);
+            green_light = true;
+            cout << "\n🟢 GREEN LIGHT\n";
+        }
+
+        cv.notify_all(); // wake traffic thread
+
+        this_thread::sleep_for(chrono::seconds(1));
+    }
+}
+
+int main() {
+    thread sensor(sensor_thread);
+    thread traffic(traffic_light_thread);
+    thread light(light_controller);
+
+    sensor.join();
+    light.join();
+    traffic.join();
+
+    return 0;
+}
