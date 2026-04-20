@@ -1,0 +1,58 @@
+#include <iostream>
+#include <thread>
+#include <mutex>
+#include <vector>
+#include <chrono>
+
+#define N 5
+
+using namespace std;
+
+mutex forks[N];
+
+void think(int id) {
+    cout << "Philosopher " << id << " is thinking\n";
+    this_thread::sleep_for(chrono::milliseconds(100));
+}
+
+void eat(int id) {
+    cout << "Philosopher " << id << " is eating\n";
+    this_thread::sleep_for(chrono::milliseconds(100));
+}
+
+void philosopher(int id) {
+    int left = id;
+    int right = (id + 1) % N;
+
+    while (true) {
+        think(id);
+
+        // enforce ordering
+        int first = min(left, right);
+        int second = max(left, right);
+
+        // lock in order
+        lock(forks[first], forks[second]);
+
+        // adopt locks safely
+        lock_guard<mutex> lock1(forks[first], adopt_lock);
+        lock_guard<mutex> lock2(forks[second], adopt_lock);
+
+        eat(id);
+        // locks automatically released when lock_guard goes out of scope
+    }
+}
+
+int main() {
+    vector<thread> philosophers;
+
+    for (int i = 0; i < N; i++) {
+        philosophers.emplace_back(philosopher, i);
+    }
+
+    for (auto &t : philosophers) {
+        t.join();
+    }
+
+    return 0;
+}
