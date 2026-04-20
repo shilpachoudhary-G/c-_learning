@@ -1,0 +1,58 @@
+#include <iostream>
+#include <thread>
+#include <semaphore>
+#include <barrier>
+#include <vector>
+
+using namespace std;
+
+class H2O {
+private:
+    counting_semaphore<2> hSem{2};  // max 2 H
+    counting_semaphore<1> oSem{1};  // max 1 O
+    barrier<> sync_point{3};        // wait for 3 threads
+
+public:
+    void hydrogen(function<void()> releaseHydrogen) {
+        hSem.acquire();   // allow only 2 H
+
+        releaseHydrogen(); // print "H"
+
+        sync_point.arrive_and_wait(); // wait for molecule
+
+        hSem.release();   // allow next H
+    }
+
+    void oxygen(function<void()> releaseOxygen) {
+        oSem.acquire();   // allow only 1 O
+
+        releaseOxygen(); // print "O"
+
+        sync_point.arrive_and_wait(); // wait for molecule
+
+        oSem.release();   // allow next O
+    }
+};
+
+int main() {
+    H2O h2o;
+    vector<thread> threads;
+
+    string input = "HHOOHHHOOH"; // test input
+
+    for (char c : input) {
+        if (c == 'H') {
+            threads.emplace_back([&]() {
+                h2o.hydrogen([]() { cout << "H"; });
+            });
+        } else {
+            threads.emplace_back([&]() {
+                h2o.oxygen([]() { cout << "O"; });
+            });
+        }
+    }
+
+    for (auto &t : threads) t.join();
+
+    return 0;
+}
