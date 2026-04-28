@@ -1,0 +1,183 @@
+#include <iostream>
+#include <cstring>
+
+class String {
+private:
+    char* data_;
+    size_t size_;
+    size_t capacity_;
+
+    void reallocate(size_t new_capacity) {
+        char* new_data = new char[new_capacity + 1];
+
+        if (data_) {
+            std::memcpy(new_data, data_, size_);
+            delete[] data_;
+        }
+
+        data_ = new_data;
+        capacity_ = new_capacity;
+        data_[size_] = '\0';
+    }
+
+public:
+    // Default constructor
+    String() : data_(nullptr), size_(0), capacity_(0) {}
+
+    // C-string constructor
+    String(const char* str) {
+        size_ = std::strlen(str);
+        capacity_ = size_;
+        data_ = new char[capacity_ + 1];
+        std::memcpy(data_, str, size_ + 1);
+    }
+
+    // Copy constructor
+    String(const String& other) {
+        size_ = other.size_;
+        capacity_ = other.capacity_;
+        data_ = new char[capacity_ + 1];
+        std::memcpy(data_, other.data_, size_ + 1);
+    }
+
+    // Move constructor
+    String(String&& other) noexcept {
+        data_ = other.data_;
+        size_ = other.size_;
+        capacity_ = other.capacity_;
+
+        other.data_ = nullptr;
+        other.size_ = 0;
+        other.capacity_ = 0;
+    }
+
+    // Copy assignment
+    String& operator=(const String& other) {
+        if (this == &other) return *this;
+
+        delete[] data_;
+
+        size_ = other.size_;
+        capacity_ = other.capacity_;
+        data_ = new char[capacity_ + 1];
+        std::memcpy(data_, other.data_, size_ + 1);
+
+        return *this;
+    }
+
+    // Move assignment
+    String& operator=(String&& other) noexcept {
+        if (this == &other) return *this;
+
+        delete[] data_;
+
+        data_ = other.data_;
+        size_ = other.size_;
+        capacity_ = other.capacity_;
+
+        other.data_ = nullptr;
+        other.size_ = 0;
+        other.capacity_ = 0;
+
+        return *this;
+    }
+
+    // Destructor
+    ~String() {
+        delete[] data_;
+    }
+
+    // Size
+    size_t size() const { return size_; }
+
+    // Capacity
+    size_t capacity() const { return capacity_; }
+
+    // Access
+    char& operator[](size_t index) {
+        return data_[index];
+    }
+
+    const char& operator[](size_t index) const {
+        return data_[index];
+    }
+
+    // c_str
+    const char* c_str() const {
+        return data_ ? data_ : "";
+    }
+
+    // Reserve
+    void reserve(size_t new_capacity) {
+        if (new_capacity > capacity_) {
+            reallocate(new_capacity);
+        }
+    }
+
+    // push_back
+    void push_back(char c) {
+        if (size_ == capacity_) {
+            size_t new_capacity = (capacity_ == 0) ? 1 : capacity_ * 2;
+            reallocate(new_capacity);
+        }
+
+        data_[size_++] = c;
+        data_[size_] = '\0';
+    }
+
+    // append another string
+    void append(const String& other) {
+        if (size_ + other.size_ > capacity_) {
+            size_t new_capacity = std::max(capacity_ * 2, size_ + other.size_);
+            reallocate(new_capacity);
+        }
+
+        std::memcpy(data_ + size_, other.data_, other.size_);
+        size_ += other.size_;
+        data_[size_] = '\0';
+    }
+
+    // append C-string
+    void append(const char* str) {
+        size_t len = std::strlen(str);
+
+        if (size_ + len > capacity_) {
+            size_t new_capacity = std::max(capacity_ * 2, size_ + len);
+            reallocate(new_capacity);
+        }
+
+        std::memcpy(data_ + size_, str, len);
+        size_ += len;
+        data_[size_] = '\0';
+    }
+
+    // Clear
+    void clear() {
+        size_ = 0;
+        if (data_) data_[0] = '\0';
+    }
+
+    // Print helper
+    void print() const {
+        std::cout << c_str() << std::endl;
+    }
+};
+
+int main() {
+    String s1("Hello");
+    String s2(" World");
+
+    s1.append(s2);
+    s1.print(); // Hello World
+
+    s1.push_back('!');
+    s1.print(); // Hello World!
+
+    String s3 = s1;  // copy
+    s3.print();
+
+    String s4 = std::move(s1); // move
+    s4.print();
+
+    std::cout << "Size: " << s4.size() << std::endl;
+}
