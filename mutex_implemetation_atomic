@@ -1,0 +1,39 @@
+//atomic flag spin mutex 
+#include <atomic>
+
+class SpinMutex {
+    std::atomic_flag flag = ATOMIC_FLAG_INIT;
+
+public:
+    void lock() {
+        while (flag.test_and_set(std::memory_order_acquire)) {
+            // spin (busy wait)
+        }
+    }
+
+    void unlock() {
+        flag.clear(std::memory_order_release);
+    }
+};
+
+// atomic with boolean 
+#include <atomic>
+
+class SpinMutex {
+    std::atomic<bool> locked{false};
+
+public:
+    void lock() {
+        bool expected = false;
+
+        // Try to acquire lock
+        while (!locked.compare_exchange_weak(expected, true,
+                                             std::memory_order_acquire)) {
+            expected = false; // reset expected after failure
+        }
+    }
+
+    void unlock() {
+        locked.store(false, std::memory_order_release);
+    }
+};
