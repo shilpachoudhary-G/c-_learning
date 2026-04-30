@@ -1,0 +1,109 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+
+typedef struct task {
+    void (*function)(void *);
+    void *arg;
+    struct task *next;
+} task_t;
+
+typedef struct {
+    pthread_t *threads;
+    int num_threads;
+
+    task_t *head;
+    task_t *tail;
+
+    pthread_mutex_t lock;
+    pthread_cond_t notify;
+
+    int stop;
+} thread_pool_t;
+
+// Worker thread
+void* worker(void *arg) {
+    thread_pool_t *pool = (thread_pool_t *)arg;
+
+    while (1) {
+        pthread_mutex_lock(&pool->lock);
+
+        while (!pool->head && !pool->stop) {
+            pthread_cond_wait(&pool->notify, &pool->lock);
+        }
+
+        if (pool->stop) {
+            pthread_mutex_unlock(&pool->lock);
+            break;
+        }
+
+        task_t *task = pool->head;
+        if (task) {
+            pool->head = task->next;
+            if (!pool->head)
+                pool->tail = NULL;
+        }
+
+        pthread_mutex_unlock(&pool->lock);
+
+        if (task) {
+            task->function(task->arg);
+            free(task);
+        }
+    }
+    return NULL;
+}
+
+// Create pool
+thread_pool_t* thread_pool_create(int num_threads) {
+    thread_pool_t *pool = malloc(sizeof(thread_pool_t));
+
+    pool->num_threads = num_threads;
+    pool->threads = malloc(num_threads * sizeof(pthread_t));
+    pool->head = pool->tail = NULL;
+    pool->stop = 0;
+
+    pthread_mutex_init(&pool->lock, NULL);
+    pthread_cond_init(&pool->notify, NULL);
+
+    for (int i = 0; i < num_threads; i++) {
+        pthread_create(&pool->threads[i], NULL, worker, pool);
+    }
+
+    return pool;
+}
+
+// Add task
+void thread_pool_add(thread_pool_t *pool, void (*function)(void *), void *arg) {
+    task_t *task = malloc(sizeof(task_t));
+    task->function = function;
+    task->arg = arg;
+    task->next = NULL;
+
+    pthread_mutex_lock(&pool->lock);
+
+    if (pool->tail) {
+        pool->tail->next = task;
+        pool->tail = task;
+    } else {
+        pool->head = pool->tail = task;
+    }
+
+    pthread_cond_signal(&pool->notify);
+    pthread_mutex_unlock(&pool->lock);
+}
+
+// Destroy pool
+void thread_pool_destroy(thread_pool_t *pool) {
+    pthread_mutex_lock(&pool->lock);
+    pool->stop = 1;
+    pthread_cond_broadcast(&pool->notify);
+    pthread_mutex_unlock(&pool->lock);
+
+    for (int i = 0; i < pool->num_threads; i++) {
+        pthread_join(pool->threads[i], NULL);
+    }
+
+    free(pool->threads);
+    free(pool);
+}
