@@ -1,0 +1,59 @@
+1. What is false sharing?
+
+False sharing occurs when multiple threads modify different variables located in the same cache line. The CPU cache coherence protocol repeatedly 
+invalidates and transfers the cache line between cores, causing unnecessary performance over.
+
+2. How do you prevent false sharing?
+
+Common techniques include:
+
+Using alignas(64) to align frequently modified variables.
+Adding padding so each thread's data occupies a separate cache line.
+Designing data structures so each thread writes
+Is false sharing a correctness issue?
+
+No. False sharing does not cause incorrect results. It is a performance issue. 
+The program remains correct, but it may scale poorly because of excessive cache coherence traffic.
+
+
+#include <iostream>
+#include <thread>
+
+struct Counter
+{
+    int x;
+    int y;
+};
+
+Counter counter;
+
+void thread1()
+{
+    for(int i=0;i<100000000;i++)
+        counter.x++;
+}
+
+void thread2()
+{
+    for(int i=0;i<100000000;i++)
+        counter.y++;
+}
+
+int main()
+{
+    std::thread t1(thread1);
+    std::thread t2(thread2);
+
+    t1.join();
+    t2.join();
+}
+
+Modern C++ provides a cleaner solution.
+
+#include <new>
+
+struct Counter
+{
+    alignas(64) int x;
+    alignas(64) int y;
+};
