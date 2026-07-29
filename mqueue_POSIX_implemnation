@@ -1,0 +1,74 @@
+//sender 
+#include <iostream>
+#include <mqueue.h>
+#include <cstring>
+#include <fcntl.h>
+#include <sys/stat.h>
+
+int main()
+{
+    struct mq_attr attr;
+    attr.mq_flags = 0;
+    attr.mq_maxmsg = 10;
+    attr.mq_msgsize = 100;
+    attr.mq_curmsgs = 0;
+
+    mqd_t mq = mq_open("/myqueue",
+                       O_CREAT | O_WRONLY,
+                       0666,
+                       &attr);
+
+    if (mq == (mqd_t)-1)
+    {
+        perror("mq_open");
+        return 1;
+    }
+
+    const char* msg = "Hello from Sender";
+
+    mq_send(mq,
+            msg,
+            strlen(msg) + 1,
+            0);
+
+    mq_close(mq);
+
+    return 0;
+}
+
+//reciver 
+#include <iostream>
+#include <mqueue.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+
+int main()
+{
+    mqd_t mq = mq_open("/myqueue",
+                       O_RDONLY);
+
+    if (mq == (mqd_t)-1)
+    {
+        perror("mq_open");
+        return 1;
+    }
+
+    char buffer[100];
+
+    unsigned int priority;
+
+    mq_receive(mq,
+               buffer,
+               sizeof(buffer),
+               &priority);
+
+    std::cout << "Received: "
+              << buffer
+              << std::endl;
+
+    mq_close(mq);
+
+    mq_unlink("/myqueue");
+
+    return 0;
+}
