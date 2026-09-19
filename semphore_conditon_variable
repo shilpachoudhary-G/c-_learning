@@ -1,0 +1,113 @@
+#include <stdio.h>
+#include<pthread.h> 
+
+int a = 10;
+int b = 20;
+int result = 0;
+
+bool calculation_done = false;
+
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+
+// Worker thread
+void* addNumbers(void* arg)
+{
+    pthread_mutex_lock(&mutex);
+
+    result = a + b;
+    calculation_done = true;
+
+    // Notify the waiting thread
+    pthread_cond_signal(&cond);
+
+    pthread_mutex_unlock(&mutex);
+
+    return nullptr;
+}
+
+// Main/waiting thread
+void* printResult(void* arg)
+{
+    pthread_mutex_lock(&mutex);
+
+    // Wait until calculation is completed
+    while (!calculation_done)
+    {
+        pthread_cond_wait(&cond, &mutex);
+    }
+
+    std::cout << "Result = " << result << std::endl;
+
+    pthread_mutex_unlock(&mutex);
+
+    return nullptr;
+}
+
+int main()
+{
+    pthread_t t1, t2;
+
+    pthread_create(&t1, nullptr, addNumbers, nullptr);
+    pthread_create(&t2, nullptr, printResult, nullptr);
+
+    pthread_join(t1, nullptr);
+    pthread_join(t2, nullptr);
+
+    pthread_mutex_destroy(&mutex);
+    pthread_cond_destroy(&cond);
+
+    return 0;
+}
+
+#include <pthread.h>
+#include <semaphore.h>
+#include <stdio.h>
+
+int a = 10;
+int b = 20;
+int result = 0;
+
+sem_t sem;
+
+// Thread 1: Add numbers
+void* addNumbers(void* arg)
+{
+    result = a + b;
+
+    // Tell the waiting thread that result is ready
+    
+    
+    return 0;
+}
+
+// Thread 2: Print result
+void* printResult(void* arg)
+{
+    // Wait until Thread 1 finishes calculation
+       sem_post(&sem); 
+    sem_wait(&sem);
+
+    printf(" Result = %d", result);
+
+    return 0;
+}
+
+int main()
+{
+    pthread_t t1, t2;
+
+    // Initialize semaphore
+    // 0 = initially unavailable
+    sem_init(&sem, 0, 0);
+
+    pthread_create(&t1, 0, addNumbers, 0);
+    pthread_create(&t2, 0, printResult, 0);
+
+    pthread_join(t1, 0);
+    pthread_join(t2, 0);
+
+    sem_destroy(&sem);
+
+    return 0;
+}
