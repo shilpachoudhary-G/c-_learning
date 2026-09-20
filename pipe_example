@@ -37,3 +37,58 @@ int main()
         wait(nullptr);
     }
 }
+
+
+/// example with dup with stdin and stdout 
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <stdlib.h>
+
+int main()
+{
+    int pipefd[2];
+
+    // pipefd[0] = read end
+    // pipefd[1] = write end
+    pipe(pipefd);
+
+    pid_t pid = fork();
+
+    if (pid == 0) {
+        // Child
+
+        close(pipefd[1]);  // Child doesn't write
+
+        // Make pipe read end become stdin
+        dup2(pipefd[0], STDIN_FILENO);
+
+        close(pipefd[0]);
+
+        // Now stdin comes from the pipe
+        char buffer[100];
+
+        read(STDIN_FILENO, buffer, sizeof(buffer));
+        printf("Child received: %s\n", buffer);
+
+        exit(0);
+    }
+    else {
+        // Parent
+
+        close(pipefd[0]);  // Parent doesn't read
+
+        // Make pipe write end become stdout
+        dup2(pipefd[1], STDOUT_FILENO);
+
+        close(pipefd[1]);
+
+        // Now stdout goes into the pipe
+        printf("Hello from parent\n");
+        fflush(stdout);
+
+        wait(NULL);
+    }
+
+    return 0;
+}
