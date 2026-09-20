@@ -92,3 +92,73 @@ int main()
 
     return 0;
 }
+=====================================================================
+// How shell works in Linux :
+// ---------------
+// Let's see exactly what happens internally when you run:
+
+// ls | grep cpp
+
+/// This is a very common Linux shell + pipe() + fork() + dup2() + exec() interview question.
+
+
+  PIPE
+       +----------------+
+       |                |
+       v                v
+     ls stdout -----> grep stdin
+
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <stdlib.h>
+
+int main()
+{
+    int pipefd[2];
+
+    pipe(pipefd);
+
+    // First child: ls
+    pid_t pid1 = fork();
+
+    if (pid1 == 0) {
+        close(pipefd[0]);
+
+        // stdout -> pipe
+        dup2(pipefd[1], STDOUT_FILENO);
+
+        close(pipefd[1]);
+
+        execlp("ls", "ls", NULL);
+
+        perror("execlp ls");
+        exit(1);
+    }
+
+    // Second child: grep cpp
+    pid_t pid2 = fork();
+
+    if (pid2 == 0) {
+        close(pipefd[1]);
+
+        // stdin <- pipe
+        dup2(pipefd[0], STDIN_FILENO);
+
+        close(pipefd[0]);
+
+        execlp("grep", "grep", "cpp", NULL);
+
+        perror("execlp grep");
+        exit(1);
+    }
+
+    // Parent shell doesn't use pipe
+    close(pipefd[0]);
+    close(pipefd[1]);
+
+    waitpid(pid1, NULL, 0);
+    waitpid(pid2, NULL, 0);
+
+    return 0;
+}
