@@ -1,0 +1,78 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <string.h>
+
+int main()
+{
+    int fd;
+    const char *msg = "Hello from writer";
+
+    fd = open("mypipe", O_WRONLY);
+
+    if (fd == -1) {
+        perror("open");
+        exit(EXIT_FAILURE);
+    }
+
+    write(fd, msg, strlen(msg));
+
+    close(fd);
+
+    return 0;
+}
+//reciver 
+#include <stdio.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <unistd.h>
+
+int main()
+{
+    int fd;
+    char buffer[100];
+
+    fd = open("mypipe", O_RDONLY);
+
+    if (fd == -1) {
+        perror("open");
+        exit(EXIT_FAILURE);
+    }
+
+    ssize_t n = read(fd, buffer, sizeof(buffer) - 1);
+
+    if (n > 0) {
+        buffer[n] = '\0';
+        printf("Received: %s\n", buffer);
+    }
+
+    close(fd);
+
+    return 0;
+}
+
+//create pipe using :
+Creating FIFO from C using mkfifo()
+
+Instead of:
+
+mkfifo mypipe
+
+you can create it in C:
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <stdio.h>
+
+int main()
+{
+    if (mkfifo("mypipe", 0666) == -1) {
+        perror("mkfifo");
+        return 1;
+    }
+
+    printf("FIFO created\n");
+
+    return 0;
+}
