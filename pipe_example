@@ -92,6 +92,18 @@ int main()
 
     return 0;
 }
+
+
+
+Key Comparison
+
+
+Feature	dup(oldfd)	dup2(oldfd, newfd)
+Arguments	Takes only the existing file descriptor (oldfd).	Takes the existing (oldfd) and the target descriptor (newfd).
+FD Allocation	Automatically allocates the lowest available integer in the process's file descriptor table.	Forces the duplicate to use the user-specified newfd.
+If Target FD is Open	Not applicable (it only uses unassigned descriptors).	Silently and atomically closes newfd first before reusing it.
+If oldfd == newfd	Not applicable.	Does nothing and safely returns newfd.
+
 =====================================================================
 // How shell works in Linux :
 // ---------------
