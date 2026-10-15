@@ -1,0 +1,94 @@
+//selcet 
+#include <sys/select.h>
+#include <unistd.h>
+#include <cstdio>
+
+int main() {
+    fd_set readfds;
+    FD_ZERO(&readfds);
+    FD_SET(STDIN_FILENO, &readfds);
+
+    timeval timeout{};
+    timeout.tv_sec = 5;
+
+    int ready = select(
+        STDIN_FILENO + 1,
+        &readfds, nullptr, nullptr, &timeout
+    );
+
+    if (ready > 0 && FD_ISSET(STDIN_FILENO, &readfds)) {
+        char buffer[128];
+        ssize_t n = read(STDIN_FILENO, buffer, sizeof(buffer));
+        if (n > 0)
+            write(STDOUT_FILENO, buffer, n);
+    } else if (ready == 0) {
+        printf("Timeout\n");
+    }
+
+    return 0;
+}
+
+//poll
+#include <poll.h>
+#include <unistd.h>
+#include <cstdio>
+
+int main() {
+    pollfd pfd{};
+    pfd.fd = STDIN_FILENO;
+    pfd.events = POLLIN;
+
+    int ready = poll(&pfd, 1, 5000); // timeout in milliseconds
+
+    if (ready > 0 && (pfd.revents & POLLIN)) {
+        char buffer[128];
+        ssize_t n = read(pfd.fd, buffer, sizeof(buffer));
+        if (n > 0)
+            write(STDOUT_FILENO, buffer, n);
+    } else if (ready == 0) {
+        printf("Timeout\n");
+    }
+
+    return 0;
+}
+
+//epoll 
+#include <sys/epoll.h>
+#include <unistd.h>
+#include <cstdio>
+
+int main() {
+    int epfd = epoll_create1(EPOLL_CLOEXEC);
+    if (epfd == -1)
+        return 1;
+
+    epoll_event ev{};
+    ev.events = EPOLLIN;
+    ev.data.fd = STDIN_FILENO;
+
+    if (epoll_ctl(epfd, EPOLL_CTL_ADD, STDIN_FILENO, &ev) == -1) {
+        close(epfd);
+        return 1;
+    }
+
+    epoll_event events[10];
+
+    int n = epoll_wait(epfd, events, 10, 5000);
+
+    if (n > 0) {
+        for (int i = 0; i < n; ++i) {
+            if (events[i].events & EPOLLIN) {
+                char buffer[128];
+                ssize_t bytes = read(events[i].data.fd,
+                                     buffer, sizeof(buffer));
+                if (bytes > 0)
+                    write(STDOUT_FILENO, buffer, bytes);
+            }
+        }
+    } else if (n == 0) {
+        printf("Timeout\n");
+    }
+
+    close(epfd);
+    return 0;
+}
