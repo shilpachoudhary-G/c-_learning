@@ -172,5 +172,66 @@ int main()
     waitpid(pid1, NULL, 0);
     waitpid(pid2, NULL, 0);
 
+
+
+
     return 0;
 }
+
+
+===========================================
+1. Types of exec() functions
+The main differences are whether arguments are passed as a list or an array, and whether the executable path is searched using PATH.
+Function	Arguments	Searches PATH?
+execl()	List of arguments	No
+execv()	Array (argv)	No
+execlp()	List of arguments	Yes
+execvp()	Array (argv)	Yes
+execve()	Array (argv) + explicit environment	No
+execle()	List of arguments + explicit environment	No
+
+
+example : 
+#include <unistd.h>
+#include <cstdio>
+
+int main()
+{
+    char* args[] = {
+        const_cast<char*>("ls"),
+        const_cast<char*>("-l"),
+        nullptr
+    };
+
+    execv("/bin/ls", args);
+
+    // Executes only if execv fails
+    perror("execv failed");
+    return 1;
+}
+
+
+
+int main()
+{
+    char* args[] = {
+        const_cast<char*>("printenv"),
+        const_cast<char*>("MY_APP"),
+        nullptr
+    };
+
+    char* env[] = {
+        const_cast<char*>("MY_APP=HelloLinux"),
+        nullptr
+    };
+
+    execve("/usr/bin/printenv", args, env);
+
+    // Executes only if execve fails
+    perror("execve failed");
+    return 1;
+}
+
+
+Senior-level interview answer: execv() inherits the calling process's environment, while execve() allows the caller to specify the environment explicitly. 
+Both replace the current process image, preserve the PID on success, and do not return unless an error occur 
